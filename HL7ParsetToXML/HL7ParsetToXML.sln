@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.452
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HL7ParsetToXML", "HL7ParsetToXML\HL7ParsetToXML.csproj", "{D2EEFC0A-E70D-4423-AF60-E9D1517F3A8D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D2EEFC0A-E70D-4423-AF60-E9D1517F3A8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2EEFC0A-E70D-4423-AF60-E9D1517F3A8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2EEFC0A-E70D-4423-AF60-E9D1517F3A8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2EEFC0A-E70D-4423-AF60-E9D1517F3A8D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {695C79CA-A4FC-427C-B49A-5C9B57D0F272}
+	EndGlobalSection
+EndGlobal
