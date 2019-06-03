@@ -2,22 +2,34 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using HL7ParserModel;
 using NextLevelSeven.Core;
+using NextLevelSeven.Parsing;
 
 namespace HL7Parser
 {
     public class Parser
     {
         private delegate PatientDemoCondensed ParseFileContentToHl7(string fileContent);
-        public async Task<List<PatientDemoCondensed>> GetXmlFileContentToWrite(string folderPath)
+
+        private delegate ChargesDemoCondensed ParseChargesFileContentToHl7(string fileContent);
+
+        private ISegmentParser _pV1, _pId, _oBr, _iN1, _fT1;
+
+        public async Task<List<SetOfPatientDemoAndCharges>> Parse(string folderPath)
         {
             DirectoryInfo directoryInfo = new DirectoryInfo(folderPath);
+
             FileInfo[] files = directoryInfo.GetFiles("*.hl7");
-            var filesContent = new List<PatientDemoCondensed>();
-            ParseFileContentToHl7 handler = CovertFileStringToHl7Segments;
+
+            var filesContent = new List<SetOfPatientDemoAndCharges>();
+
+            var objectToFile=new SetOfPatientDemoAndCharges();
+
+            ParseFileContentToHl7 handler = ConvertFileStringToPatientInfoSegments;
+
+            ParseChargesFileContentToHl7 chargesFileHandler = ConvertFileStringToChargesSegments;
 
             foreach (var file in files)
             {
@@ -27,50 +39,58 @@ namespace HL7Parser
 
                     var fileContent = await streamReader.ReadToEndAsync();
 
-                    var hl7Segment = handler(fileContent);
+                    objectToFile.PatientDemoCondensed = handler(fileContent);
 
-                    filesContent.Add(hl7Segment);
+                    objectToFile.ChargesDemoCondensed = chargesFileHandler(fileContent);
+
+                    filesContent.Add(objectToFile);
 
                     // Log file is being process successfully. 
                 }
             }
 
+            
             return filesContent;
         }
 
-        private PatientDemoCondensed CovertFileStringToHl7Segments(string fileContent)
+        private PatientDemoCondensed ConvertFileStringToPatientInfoSegments(string fileContent)
         {
             var message = Message.Parse(fileContent);
             try
             {
 
-            
+                _pV1 = message.Segments.FirstOrDefault(x => x.Type == "PV1");
+                _pId = message.Segments.FirstOrDefault(x => x.Type == "PID");
+                _oBr = message.Segments.FirstOrDefault(x => x.Type == "OBR");
+                _iN1 = message.Segments.FirstOrDefault(x => x.Type == "IN1");
 
-                var patientInfo = new PatientDemoCondensed();
 
-                patientInfo.AccessionId = message[4][19]?.Value;
-                patientInfo.FullName = message.Segment(3).Field(5).Value.Replace('^', ' ');
-                patientInfo.Address1 = message.Segment(3).Field(11).Value?.Split('^')[0];
-                patientInfo.Address2 = message.Segment(3).Field(11).Value?.Split('^')[1];
-                patientInfo.City = message.Segment(3).Field(11).Value?.Split('^')[2];
-                patientInfo.WorkZip = message.Segment(3).Field(11).Value?.Split('^').Last();
-                patientInfo.BirthDate = message.Segment(3).Field(7)?.Value;
-                patientInfo.Gender = message.Segment(3).Field(8)?.Value[0];
-                patientInfo.PhoneHome = message.Segment(3).Field(13)?.Value;
-                patientInfo.Ssn = message.Segment(3).Field(19)?.Value;
-                patientInfo.ZipCode = message.Segment(3).Field(11).Value?.Split('^').Last();
-                patientInfo.LocationCode = message.Segment(4).Field(3)?.Value;
-                patientInfo.MedicalRecord = message.Segment(3).Field(2)?.Value;
-                patientInfo.ProviderCode = message.Segment(4).Field(7)?.Value.Split('^')[0];
+                var patientInfo = new PatientDemoCondensed
+                {
+                    AccessionId = _pV1.Field(19)?.Value,
+                    FullName = _pId.Field(5).Value.Replace('^', ' '),
+                    Address1 = _pId.Field(11).Value?.Split('^')[0],
+                    Address2 = _pId.Field(11).Value?.Split('^')[1],
+                    City = _pId.Field(11).Value?.Split('^')[2],
+                    WorkZip = _pId.Field(11).Value?.Split('^').Last(),
+                    BirthDate = _pId.Field(7)?.Value,
+                    Gender = _pId.Field(8)?.Value[0],
+                    PhoneHome = _pId.Field(13)?.Value?.Split('^')[0],
+                    Ssn = _pId.Field(19)?.Value,
+                    ZipCode = _pId.Field(11).Value?.Split('^').Last(),
+                    LocationCode = ReArrangeLocationCode(_pV1.Field(3)?.Value),
+                    MedicalRecord = _pId.Field(2)?.Value,
+                    ProviderCode = _pV1.Field(7)?.Value.Split('^')[0],
 
-                patientInfo.ReferringPhys = message.Segments.FirstOrDefault(x => x.Type == "OBR")?.Field(16).Value
-                    .Split('^').LastOrDefault();
-                  
+                    ReferringPhys = _oBr?.Field(16).Value
+                    .Split('^').LastOrDefault(),
 
-                patientInfo.InsuranceCode = message.Segment(5).Field(3)?.Value;
-                patientInfo.InsPolicy = message.Segment(5).Field(36)?.Value;
-                patientInfo.InsPolicyStatus = "P";
-                patientInfo.InsRelationShip = message.Segment(5).Field(17)?.Value;
+
+                    InsuranceCode = _iN1.Field(3)?.Value,
+                    InsPolicy = _iN1.Field(36)?.Value,
+                    InsPolicyStatus = "P",
+                    InsRelationShip = _iN1.Field(17)?.Value
+                };
 
                 return patientInfo;
             }
@@ -79,6 +99,32 @@ namespace HL7Parser
                 Console.WriteLine(e);
                 throw;
             }
+
+            
+        }
+
+        private ChargesDemoCondensed ConvertFileStringToChargesSegments(string fileContent)
+        {
+            var message = Message.Parse(fileContent);
+
+            _fT1 = message.Segments.FirstOrDefault(x => x.Type == "FT1");
+
+            var chargesInfo = new ChargesDemoCondensed
+            {
+                DateFrom = _fT1.Field(4)?.Value,
+                DateThru = _fT1.Field(4)?.Value,
+                CptCode = _fT1.Field(25)?.Value?.Split('^')[0],
+                UnitsForBilling = _fT1.Field(10)?.Value,
+                RefLab = "UDLLAB",
+            };
+            return chargesInfo;
+        }
+
+        private string ReArrangeLocationCode(string rawLocationCode)
+        {
+            string locationCode = rawLocationCode.Replace('^', ' ').Trim();
+            var indexOfAnd = locationCode.IndexOf('&')+1;
+            return  locationCode.Substring(indexOfAnd,locationCode.Length-indexOfAnd).Insert(0,"ACC ");
         }
     }
 }
